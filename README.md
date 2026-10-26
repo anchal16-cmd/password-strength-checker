@@ -5,7 +5,7 @@
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Standard%20Library%20Only-brightgreen.svg)]()
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline-orange.svg)]()
 
-An educational, portfolio-grade cybersecurity tool designed to evaluate password complexity, detect predictable patterns, and provide actionable security recommendations. Built strictly with Python 3's standard library with zero external dependencies.
+An educational, portfolio-ready cybersecurity tool designed to evaluate password complexity, detect predictable patterns, and provide actionable security recommendations through a clean, beginner-friendly terminal interface. Built strictly with Python 3's standard library with zero external dependencies.
 
 ---
 
@@ -27,10 +27,11 @@ An educational, portfolio-grade cybersecurity tool designed to evaluate password
 
 In real-world cybersecurity, many users believe that substituting letters with symbols (such as replacing `a` with `@` or `o` with `0`) makes their password uncrackable. In reality, modern password-cracking software (like Hashcat and John the Ripper) uses rule-based attacks that instantly reverse these predictable patterns.
 
-This project goes beyond naive character counters by providing:
+This project delivers:
 1. **Traditional Complexity Scoring**: Evaluates length, case mixing, numbers, and special symbols.
 2. **Offline Pattern Diagnostics**: Flags common dictionary words, simple sequential runs, repeated characters, leetspeak substitutions, and keyboard walks.
-3. **Honest, Educational Feedback**: Explains why a high complexity score alone does not guarantee security if predictable patterns exist.
+3. **Clean, Non-Repetitive Terminal Report**: Presents strengths, weaknesses, prioritized recommendations (max 3), and practical security tips without clutter.
+4. **Optional In-Depth Breakdown**: Provides an optional detailed breakdown on request showing points awarded per criterion and a complete security checklist.
 
 ---
 
@@ -54,9 +55,15 @@ This project demonstrates core competencies in cybersecurity and software engine
   - Consecutive character repetition (3+ identical characters in a row).
   - Alphabetical and numerical sequential runs (e.g., `abc`, `123`, `cba`).
   - Predictable keyboard walks (e.g., `qwerty`, `asdfgh`).
+- **Clean & Concise Output**:
+  - **WHAT IS GOOD?**: Lists only detected strengths.
+  - **WHAT NEEDS IMPROVEMENT?**: Lists only detected weaknesses without duplication.
+  - **HOW TO IMPROVE?**: Gives top 3 actionable recommendations.
+  - **SECURITY TIP**: Concise reminder on password managers and MFA.
+  - **Optional Detailed Breakdown**: Access full criteria points and security checklist on request.
 - **Privacy-Preserving Input**: Supports masked/hidden terminal input using Python's built-in `getpass` module, with an option for visible input.
-- **Zero Sensitive Data Leakage**: The user's input password is never printed in cleartext in the final report; input is represented solely by length and masking.
-- **Cross-Platform Compatibility**: ASCII-safe terminal symbols ensure zero crashes across Windows, macOS, and Linux terminals.
+- **Zero Sensitive Data Leakage**: The user's input password is never printed in cleartext; input is represented solely by length and masking.
+- **Cross-Platform Compatibility**: ASCII-safe terminal formatting ensures zero crashes across Windows, macOS, and Linux terminals.
 
 ---
 
@@ -116,7 +123,7 @@ The scoring engine awards points across 5 foundational criteria plus a length bo
   - `61 - 80` : **STRONG**
   - `81 - 100`: **VERY STRONG**
 
-*Note: Pattern warnings are displayed in the security checklist to alert the user even if character-variety points are high.*
+*Note: The numerical score is an educational estimate of complexity, not a guarantee of security or a percentage probability of safety.*
 
 ---
 
@@ -141,56 +148,38 @@ Select an option (1, 2, or q): 2
 Enter a test password: SafeDummyPass#2026
 
 ==================================================
-               SECURITY REPORT
+           PASSWORD STRENGTH CHECKER
 ==================================================
-Masked Input   : ****************** (18 characters)
+
+--------------- SECURITY REPORT -----------------
+
 Strength Score : 100/100
 Strength Level : VERY STRONG
---------------------------------------------------
-SCORE CALCULATION & BREAKDOWN
-  [PASS] Length ≥ 8 characters          : +20/20 pts
-  [PASS] Length ≥ 12 characters (bonus) : +10/10 pts
-  [PASS] Uppercase letters (A-Z)        : +20/20 pts
-  [PASS] Lowercase letters (a-z)        : +20/20 pts
-  [PASS] Numbers (0-9)                  : +20/20 pts
-  [PASS] Special characters (!@#...)    : +20/20 pts
-  Total Score Calculated       : 100/100 (capped at 100)
---------------------------------------------------
-WHAT THIS SCORE MEANS
-Your password meets diverse complexity criteria and adequate length.
-Remember: a high score does not guarantee immunity from data breaches
-or targeted social engineering attacks. Never reuse it across accounts.
---------------------------------------------------
-SECURITY CHECKLIST
-  [PASS] Length ≥ 8
-  [PASS] Length ≥ 12 (bonus)
-  [PASS] Uppercase letter
-  [PASS] Lowercase letter
-  [PASS] Digit (0-9)
-  [PASS] Special character
-  [PASS] Common passwords & predictable patterns check
---------------------------------------------------
-WHAT YOU DID WELL
-  + Meets the minimum length baseline (18 characters).
-  + Contains 12 or more characters, adding substantial cryptographic search space.
-  + Includes uppercase letters, expanding the character pool.
-  + Includes lowercase letters.
-  + Includes numerical digits.
-  + Includes special symbols, significantly increasing combinatorial complexity.
---------------------------------------------------
-WHAT NEEDS IMPROVEMENT
-  + No immediate weaknesses detected based on checked criteria.
---------------------------------------------------
-HOW TO IMPROVE YOUR PASSWORD
-  1. Your password meets all complexity rules. Ensure it is unique to this service.
-  2. Use a unique password or passphrase for every account.
-  3. Store credentials securely in a dedicated password manager.
---------------------------------------------------
-SECURITY REMINDER
-  Never reuse passwords across different accounts or services.
-  Use a reputable password manager and enable multi-factor
-  authentication (MFA) wherever available.
+Masked Input   : ****************** (18 characters)
+
+WHAT IS GOOD?
+  + Meets minimum length requirement (18 characters).
+  + Contains 12 or more characters for substantial cryptographic search space.
+  + Includes uppercase letters (A-Z).
+  + Includes lowercase letters (a-z).
+  + Includes numerical digits (0-9).
+  + Includes special characters (!@#$...).
+
+WHAT NEEDS IMPROVEMENT?
+  + No weaknesses detected based on checked criteria.
+
+HOW TO IMPROVE?
+  1. Password meets complexity criteria. Ensure it is unique to this account.
+  2. Store credentials securely in a dedicated password manager.
+  3. Enable multi-factor authentication (MFA) wherever available.
+
+SECURITY TIP
+Use a long, unique password. Store it in a password manager
+and enable MFA wherever possible.
+
 ==================================================
+
+Check another password? [Y/n] (or 'd' for detailed breakdown):
 ```
 
 ---
@@ -203,8 +192,8 @@ SECURITY REMINDER
 - Whether the password contains basic sequential runs, repeated characters, or common keyboard walks.
 
 ### What the Score CANNOT Tell You
-- **Leaked Status**: This tool does **NOT** query external breach databases (e.g., HaveIBeenPwned). A complex password could still be compromised if it was exposed in a third-party breach.
-- **Targeted Guessing Immunity**: A password based on your personal information (name, pet, birthday, sports team) may score 100/100 while remaining trivial for a targeted attacker to guess.
+- **Leaked Status**: This tool does **NOT** query external breach databases. A complex password could still be compromised if it was exposed in a third-party breach.
+- **Targeted Guessing Immunity**: A password based on personal information (name, pet, birthday, sports team) may score 100/100 while remaining trivial for a targeted attacker to guess.
 - **Server-Side Storage Security**: No password is safe if a website stores credentials in plaintext or uses obsolete hashing algorithms (such as MD5 or unsalted SHA-1).
 
 ---
@@ -228,11 +217,13 @@ python -m unittest test_password_checker.py
 
 The test suite verifies:
 - Empty input and graceful prompt loops.
-- Short, medium, and long passwords.
+- Weak, medium, strong, and very strong password examples.
 - Passwords with leading, trailing, or internal spaces.
 - Common password heuristics, repeated characters, and keyboard patterns.
 - Predictable leetspeak variations (`p@ssw0rd`).
 - Non-ASCII / Unicode input handling.
 - Bound checking and score capping at 100.
+- Simplified layout sections (`WHAT IS GOOD?`, `WHAT NEEDS IMPROVEMENT?`, `HOW TO IMPROVE?`, `SECURITY TIP`).
+- Optional detailed score breakdown display.
 - Total absence of cleartext password exposure in output.
 - Backward-compatible 4-tuple unpacking.

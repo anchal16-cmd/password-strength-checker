@@ -6,17 +6,17 @@ CodeOrbit Tech Cybersecurity Internship
 Description:
     Analyzes password strength against complexity rules,
     detects predictable patterns, and produces an honest,
-    educational, and portfolio-ready security report.
+    educational, and concise portfolio-ready security report.
 
 Design Principles:
     1. Zero External Dependencies: Pure Python 3 standard library.
     2. Privacy First: Passwords are never sent over the network,
        never logged, and never displayed in cleartext in reports.
-    3. Honest Evaluation: Clarifies that complexity score alone
-       does not guarantee protection against data breaches or
-       targeted dictionary guessing.
-    4. Resilient Terminal Output: Safe ASCII formatting compatible
-       with Windows PowerShell, Command Prompt, and Unix shells.
+    3. Honest Evaluation: Scores are educational estimates, not
+       guarantees of security or percentage probabilities.
+    4. Clean & Concise Output: Non-repetitive, prioritized feedback.
+    5. Resilient Terminal Output: Safe ASCII formatting compatible
+       across all Windows, macOS, and Linux shells.
 ============================================================
 """
 
@@ -26,7 +26,7 @@ import getpass
 import io
 import re
 import sys
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # TERMINAL ENCODING COMPATIBILITY
@@ -131,7 +131,7 @@ class PasswordAnalysis(tuple):
     tips: List[str]
     checks_passed: Dict[str, bool]
     warnings: List[str]
-    breakdown: List[Tuple[str, int, int, bool]]  # (Rule Name, Points Awarded, Max Points, Passed)
+    breakdown: List[Tuple[str, int, int, str]]  # (Rule Name, Points Awarded, Max Points, Status)
     strengths: List[str]
     weaknesses: List[str]
     recommendations: List[str]
@@ -143,7 +143,7 @@ class PasswordAnalysis(tuple):
         tips: List[str],
         checks_passed: Dict[str, bool],
         warnings: List[str],
-        breakdown: List[Tuple[str, int, int, bool]],
+        breakdown: List[Tuple[str, int, int, str]],
         strengths: List[str],
         weaknesses: List[str],
         recommendations: List[str],
@@ -162,7 +162,6 @@ class PasswordAnalysis(tuple):
         return instance
 
 
-
 # ---------------------------------------------------------------------------
 # PATTERN & HEURISTIC DETECTION HELPERS
 # ---------------------------------------------------------------------------
@@ -170,13 +169,13 @@ def detect_common_password(password: str) -> Optional[str]:
     """Check if the password matches or is built directly upon a widely known common password."""
     pwd_lower = password.lower()
     if pwd_lower in COMMON_PASSWORDS:
-        return "Matches a widely known common password found in public leak lists."
+        return "Matches a widely known common password found in public breach lists."
 
     # Check if word with trailing digits/symbols stripped matches common dictionary password
     base_word = re.sub(r"[\d!@#$%^&*()-_=+\[\]{}|;:',.<>?/`~\"\\ ]+$", "", pwd_lower)
     if base_word in COMMON_PASSWORDS and len(base_word) >= 4 and base_word != pwd_lower:
         return (
-            f"Built upon a widely known common word ('{base_word}') with simple trailing additions. "
+            f"Built upon a widely known common word ('{base_word}') with trailing characters. "
             "Dictionary attacks prioritize base words with appended years or symbols."
         )
     return None
@@ -204,7 +203,7 @@ def detect_repeated_characters(password: str) -> Optional[str]:
     if re.search(r"(.)\1{2,}", password):
         return (
             "Contains 3 or more consecutive repeated characters. "
-            "Repetition lowers entropy and makes passwords easier to guess."
+            "Repetition significantly lowers entropy and simplifies guessing."
         )
     return None
 
@@ -283,103 +282,143 @@ def check_password_strength(password: str) -> PasswordAnalysis:
       - 81-100 : VERY STRONG
 
     Returns:
-      PasswordAnalysis (NamedTuple unpacking to: score, label, tips, checks_passed)
+      PasswordAnalysis (NamedTuple-like tuple unpacking to: score, label, tips, checks_passed)
     """
     score: int = 0
     tips: List[str] = []
     checks_passed: Dict[str, bool] = {}
-    breakdown: List[Tuple[str, int, int, bool]] = []
+    breakdown: List[Tuple[str, int, int, str]] = []
     strengths: List[str] = []
     weaknesses: List[str] = []
     recommendations: List[str] = []
 
+    # Handle unperformed check scenario (empty input)
+    is_empty = len(password) == 0
+
     # ----------------------------------------------------------
     # RULE 1: Minimum Length (>= 8 characters)
     # ----------------------------------------------------------
-    has_len8 = len(password) >= 8
-    checks_passed["Length ≥ 8"] = has_len8
-    if has_len8:
-        score += 20
-        breakdown.append(("Length ≥ 8 characters", 20, 20, True))
-        strengths.append(f"Meets the minimum length baseline ({len(password)} characters).")
-    else:
-        breakdown.append(("Length ≥ 8 characters", 0, 20, False))
+    if is_empty:
+        has_len8 = False
+        checks_passed["Length ≥ 8"] = False
+        breakdown.append(("Length ≥ 8 characters", 0, 20, "FAIL"))
         tips.append("Use at least 8 characters (longer = stronger).")
-        weaknesses.append(f"Too short ({len(password)} characters). Short passwords can be cracked quickly.")
-        recommendations.append("Increase length to at least 12–16 characters.")
+        weaknesses.append("Password is empty. A valid password is required.")
+        recommendations.append("Enter a password with at least 12–16 characters.")
+    else:
+        has_len8 = len(password) >= 8
+        checks_passed["Length ≥ 8"] = has_len8
+        if has_len8:
+            score += 20
+            breakdown.append(("Length ≥ 8 characters", 20, 20, "PASS"))
+            strengths.append(f"Meets minimum length requirement ({len(password)} characters).")
+        else:
+            breakdown.append(("Length ≥ 8 characters", 0, 20, "FAIL"))
+            tips.append("Use at least 8 characters (longer = stronger).")
+            weaknesses.append(f"Too short ({len(password)} characters). Short passwords are cracked quickly.")
+            recommendations.append("Increase length to at least 12–16 characters.")
 
     # Length Bonus (>= 12 characters)
-    has_len12 = len(password) >= 12
-    checks_passed["Length ≥ 12 (bonus)"] = has_len12
-    if has_len12:
-        score += 10
-        breakdown.append(("Length ≥ 12 characters (bonus)", 10, 10, True))
-        strengths.append("Contains 12 or more characters, adding substantial cryptographic search space.")
+    if is_empty:
+        has_len12 = False
+        checks_passed["Length ≥ 12 (bonus)"] = False
+        breakdown.append(("Length ≥ 12 characters (bonus)", 0, 10, "FAIL"))
     else:
-        breakdown.append(("Length ≥ 12 characters (bonus)", 0, 10, False))
-        tips.append("Aim for 12+ characters for an even stronger password.")
-        if has_len8:
-            recommendations.append("Consider lengthening your password or using a multi-word passphrase.")
+        has_len12 = len(password) >= 12
+        checks_passed["Length ≥ 12 (bonus)"] = has_len12
+        if has_len12:
+            score += 10
+            breakdown.append(("Length ≥ 12 characters (bonus)", 10, 10, "PASS"))
+            strengths.append("Contains 12 or more characters for substantial cryptographic search space.")
+        else:
+            breakdown.append(("Length ≥ 12 characters (bonus)", 0, 10, "FAIL"))
+            tips.append("Aim for 12+ characters for an even stronger password.")
+            if has_len8:
+                recommendations.append("Lengthen your password or use a multi-word passphrase.")
 
     # ----------------------------------------------------------
     # RULE 2: Uppercase Letters (A-Z)
     # ----------------------------------------------------------
-    has_upper = any(char.isupper() for char in password)
-    checks_passed["Uppercase letter"] = has_upper
-    if has_upper:
-        score += 20
-        breakdown.append(("Uppercase letters (A-Z)", 20, 20, True))
-        strengths.append("Includes uppercase letters, expanding the character pool.")
-    else:
-        breakdown.append(("Uppercase letters (A-Z)", 0, 20, False))
+    if is_empty:
+        checks_passed["Uppercase letter"] = False
+        breakdown.append(("Uppercase letters (A-Z)", 0, 20, "FAIL"))
         tips.append("Add at least one UPPERCASE letter (e.g. A, B, C …).")
-        weaknesses.append("Missing uppercase letters.")
-        recommendations.append("Include uppercase letters across different positions.")
+        weaknesses.append("Missing uppercase letters (A-Z).")
+    else:
+        has_upper = any(char.isupper() for char in password)
+        checks_passed["Uppercase letter"] = has_upper
+        if has_upper:
+            score += 20
+            breakdown.append(("Uppercase letters (A-Z)", 20, 20, "PASS"))
+            strengths.append("Includes uppercase letters (A-Z).")
+        else:
+            breakdown.append(("Uppercase letters (A-Z)", 0, 20, "FAIL"))
+            tips.append("Add at least one UPPERCASE letter (e.g. A, B, C …).")
+            weaknesses.append("Missing uppercase letters (A-Z).")
+            recommendations.append("Add uppercase letters across different positions.")
 
     # ----------------------------------------------------------
     # RULE 3: Lowercase Letters (a-z)
     # ----------------------------------------------------------
-    has_lower = any(char.islower() for char in password)
-    checks_passed["Lowercase letter"] = has_lower
-    if has_lower:
-        score += 20
-        breakdown.append(("Lowercase letters (a-z)", 20, 20, True))
-        strengths.append("Includes lowercase letters.")
-    else:
-        breakdown.append(("Lowercase letters (a-z)", 0, 20, False))
+    if is_empty:
+        checks_passed["Lowercase letter"] = False
+        breakdown.append(("Lowercase letters (a-z)", 0, 20, "FAIL"))
         tips.append("Add at least one lowercase letter (e.g. a, b, c …).")
-        weaknesses.append("Missing lowercase letters.")
-        recommendations.append("Include lowercase letters.")
+        weaknesses.append("Missing lowercase letters (a-z).")
+    else:
+        has_lower = any(char.islower() for char in password)
+        checks_passed["Lowercase letter"] = has_lower
+        if has_lower:
+            score += 20
+            breakdown.append(("Lowercase letters (a-z)", 20, 20, "PASS"))
+            strengths.append("Includes lowercase letters (a-z).")
+        else:
+            breakdown.append(("Lowercase letters (a-z)", 0, 20, "FAIL"))
+            tips.append("Add at least one lowercase letter (e.g. a, b, c …).")
+            weaknesses.append("Missing lowercase letters (a-z).")
+            recommendations.append("Include lowercase letters.")
 
     # ----------------------------------------------------------
     # RULE 4: Digits (0-9)
     # ----------------------------------------------------------
-    has_digit = any(char.isdigit() for char in password)
-    checks_passed["Digit (0-9)"] = has_digit
-    if has_digit:
-        score += 20
-        breakdown.append(("Numbers (0-9)", 20, 20, True))
-        strengths.append("Includes numerical digits.")
-    else:
-        breakdown.append(("Numbers (0-9)", 0, 20, False))
+    if is_empty:
+        checks_passed["Digit (0-9)"] = False
+        breakdown.append(("Numbers (0-9)", 0, 20, "FAIL"))
         tips.append("Include at least one number (0-9).")
-        weaknesses.append("Missing numerical digits.")
-        recommendations.append("Add numbers, ideally not at the very end as simple increments.")
+        weaknesses.append("Missing numerical digits (0-9).")
+    else:
+        has_digit = any(char.isdigit() for char in password)
+        checks_passed["Digit (0-9)"] = has_digit
+        if has_digit:
+            score += 20
+            breakdown.append(("Numbers (0-9)", 20, 20, "PASS"))
+            strengths.append("Includes numerical digits (0-9).")
+        else:
+            breakdown.append(("Numbers (0-9)", 0, 20, "FAIL"))
+            tips.append("Include at least one number (0-9).")
+            weaknesses.append("Missing numerical digits (0-9).")
+            recommendations.append("Add numbers, avoiding simple increments at the very end.")
 
     # ----------------------------------------------------------
     # RULE 5: Special Characters
     # ----------------------------------------------------------
-    has_special = any(char in SPECIAL_CHARACTERS for char in password)
-    checks_passed["Special character"] = has_special
-    if has_special:
-        score += 20
-        breakdown.append(("Special characters (!@#...)", 20, 20, True))
-        strengths.append("Includes special symbols, significantly increasing combinatorial complexity.")
-    else:
-        breakdown.append(("Special characters (!@#...)", 0, 20, False))
+    if is_empty:
+        checks_passed["Special character"] = False
+        breakdown.append(("Special characters (!@#...)", 0, 20, "FAIL"))
         tips.append("Add a special character like ! @ # $ % ^ & *")
-        weaknesses.append("Missing special characters.")
-        recommendations.append("Include special characters (symbols, punctuation).")
+        weaknesses.append("Missing special characters (!@#$%...).")
+    else:
+        has_special = any(char in SPECIAL_CHARACTERS for char in password)
+        checks_passed["Special character"] = has_special
+        if has_special:
+            score += 20
+            breakdown.append(("Special characters (!@#...)", 20, 20, "PASS"))
+            strengths.append("Includes special characters (!@#$...).")
+        else:
+            breakdown.append(("Special characters (!@#...)", 0, 20, "FAIL"))
+            tips.append("Add a special character like ! @ # $ % ^ & *")
+            weaknesses.append("Missing special characters (!@#$%...).")
+            recommendations.append("Include special characters (symbols, punctuation).")
 
     # ----------------------------------------------------------
     # SCORE CAPPING & CATEGORIZATION
@@ -398,22 +437,47 @@ def check_password_strength(password: str) -> PasswordAnalysis:
     # ----------------------------------------------------------
     # PATTERN HEURISTICS (DIAGNOSTICS & WARNINGS)
     # ----------------------------------------------------------
-    warnings = run_pattern_diagnostics(password)
-    for warning in warnings:
-        weaknesses.append(warning)
-        tips.append(f"Caution: {warning}")
+    if not is_empty:
+        warnings = run_pattern_diagnostics(password)
+        for warning in warnings:
+            weaknesses.append(warning)
+            tips.append(f"Caution: {warning}")
 
-    # Check for passphrase structure
-    if len(password) >= 14 and " " in password:
-        strengths.append("Passphrase structure detected: multi-word phrases offer excellent memory retention and high entropy.")
+        if warnings:
+            recommendations.append("Avoid common words, sequential runs, and predictable substitutions.")
 
-    # General recommendations based on best practices
+        # Check for passphrase structure
+        if len(password) >= 14 and " " in password:
+            strengths.append("Passphrase structure detected: multi-word phrases offer excellent entropy and recall.")
+    else:
+        warnings = []
+
+    # Final recommendations consolidation
     if not weaknesses and not warnings:
         tips.append("Great password! No improvements needed.")
-        recommendations.append("Your password meets all complexity rules. Ensure it is unique to this service.")
+        recommendations.append("Password meets complexity criteria. Ensure it is unique to this account.")
+        recommendations.append("Store credentials securely in a dedicated password manager.")
+        recommendations.append("Enable multi-factor authentication (MFA) wherever available.")
     else:
+        # Prioritize and ensure password manager & uniqueness are available
         recommendations.append("Use a unique password or passphrase for every account.")
         recommendations.append("Store credentials securely in a dedicated password manager.")
+
+    # Deduplicate recommendations preserving order
+    seen_recs = set()
+    deduped_recs = []
+    for r in recommendations:
+        if r not in seen_recs:
+            seen_recs.add(r)
+            deduped_recs.append(r)
+
+    # Deduplicate weaknesses preserving order
+    seen_weak = set()
+    deduped_weaknesses = []
+    for w in weaknesses:
+        if w not in seen_weak:
+            seen_weak.add(w)
+            deduped_weaknesses.append(w)
 
     return PasswordAnalysis(
         score=score,
@@ -423,43 +487,14 @@ def check_password_strength(password: str) -> PasswordAnalysis:
         warnings=warnings,
         breakdown=breakdown,
         strengths=strengths,
-        weaknesses=weaknesses,
-        recommendations=recommendations,
+        weaknesses=deduped_weaknesses,
+        recommendations=deduped_recs,
     )
 
 
 # ---------------------------------------------------------------------------
 # TERMINAL PRESENTATION & REPORT FORMATTING
 # ---------------------------------------------------------------------------
-def explain_score(score: int, label: str, has_warnings: bool) -> str:
-    """Generate an honest, educational explanation of what the score represents."""
-    if score >= 80:
-        if has_warnings:
-            return (
-                "Your password meets character complexity criteria and earned a high score.\n"
-                "HOWEVER, predictable patterns or common words were detected!\n"
-                "In real-world attacks, dictionary tools exploit these patterns first,\n"
-                "making the password vulnerable despite high variety."
-            )
-        return (
-            "Your password meets diverse complexity criteria and adequate length.\n"
-            "Remember: a high score does not guarantee immunity from data breaches\n"
-            "or targeted social engineering attacks. Never reuse it across accounts."
-        )
-    elif score >= 60:
-        return (
-            "Your password has moderate strength, meeting several baseline rules.\n"
-            "Adding more length or missing character types will protect it better\n"
-            "against automated cracking tools."
-        )
-    else:
-        return (
-            "Your password does not meet basic modern security recommendations.\n"
-            "Short or low-variety passwords can be cracked rapidly using modern\n"
-            "automated cracking hardware."
-        )
-
-
 def display_results(
     password: str,
     score: int,
@@ -469,10 +504,16 @@ def display_results(
     analysis: Optional[PasswordAnalysis] = None,
 ) -> None:
     """
-    Render a clean, well-organized, educational security report to the terminal.
-    Preserves privacy: the password is NEVER displayed in cleartext.
+    Render a clean, concise, educational security report to the terminal.
+    Follows the streamlined design requested:
+      - Title banner
+      - Strength score & level
+      - Masked input & length
+      - WHAT IS GOOD? (only detected strengths)
+      - WHAT NEEDS IMPROVEMENT? (only detected weaknesses)
+      - HOW TO IMPROVE? (maximum 3 actionable recommendations)
+      - SECURITY TIP
     """
-    # If extended analysis was not provided, generate it for full report fidelity
     if analysis is None:
         analysis = check_password_strength(password)
 
@@ -483,66 +524,67 @@ def display_results(
     sub_separator = "-" * 50
 
     print("\n" + separator)
-    print("               SECURITY REPORT")
+    print("           PASSWORD STRENGTH CHECKER")
     print(separator)
-    print(f"Masked Input   : {masked_password} ({length} characters)")
-    print(f"Strength Score : {score}/{MAX_SCORE}")
+    print("\n" + "--------------- SECURITY REPORT -----------------")
+    print(f"\nStrength Score : {score}/{MAX_SCORE}")
     print(f"Strength Level : {label}")
-    print(sub_separator)
+    print(f"Masked Input   : {masked_password} ({length} characters)")
 
-    # 1. SCORE CALCULATION & BREAKDOWN
-    print("SCORE CALCULATION & BREAKDOWN")
-    for rule_name, pts, max_pts, passed in analysis.breakdown:
-        status_tag = "[PASS]" if passed else "[FAIL]"
-        print(f"  {status_tag} {rule_name:<30} : +{pts:>2}/{max_pts} pts")
-    print(f"  Total Score Calculated       : {score:>3}/{MAX_SCORE} (capped at {MAX_SCORE})")
-    print(sub_separator)
-
-    # 2. WHAT THIS SCORE MEANS
-    print("WHAT THIS SCORE MEANS")
-    print(explain_score(score, label, bool(analysis.warnings)))
-    print(sub_separator)
-
-    # 3. DETAILED SECURITY CHECKLIST
-    print("SECURITY CHECKLIST")
-    for rule, passed in checks_passed.items():
-        status = "[PASS]" if passed else "[FAIL]"
-        print(f"  {status} {rule}")
-
-    pattern_status = "[WARN]" if analysis.warnings else "[PASS]"
-    print(f"  {pattern_status} Common passwords & predictable patterns check")
-    print(sub_separator)
-
-    # 4. WHAT YOU DID WELL
-    print("WHAT YOU DID WELL")
+    # 1. WHAT IS GOOD?
+    print("\nWHAT IS GOOD?")
     if analysis.strengths:
         for item in analysis.strengths:
             print(f"  + {item}")
     else:
-        print("  - No positive security criteria met yet.")
-    print(sub_separator)
+        print("  + None detected yet.")
 
-    # 5. WHAT NEEDS IMPROVEMENT
-    print("WHAT NEEDS IMPROVEMENT")
+    # 2. WHAT NEEDS IMPROVEMENT?
+    print("\nWHAT NEEDS IMPROVEMENT?")
     if analysis.weaknesses:
         for item in analysis.weaknesses:
             print(f"  - {item}")
     else:
-        print("  + No immediate weaknesses detected based on checked criteria.")
-    print(sub_separator)
+        print("  + No weaknesses detected based on checked criteria.")
 
-    # 6. ACTIONABLE RECOMMENDATIONS
-    print("HOW TO IMPROVE YOUR PASSWORD")
-    for idx, rec in enumerate(analysis.recommendations, 1):
+    # 3. HOW TO IMPROVE? (Show top 3 actionable recommendations only)
+    print("\nHOW TO IMPROVE?")
+    top_recommendations = analysis.recommendations[:3]
+    for idx, rec in enumerate(top_recommendations, 1):
         print(f"  {idx}. {rec}")
-    print(sub_separator)
 
-    # 7. SECURITY REMINDER
-    print("SECURITY REMINDER")
-    print("  Never reuse passwords across different accounts or services.")
-    print("  Use a reputable password manager and enable multi-factor")
-    print("  authentication (MFA) wherever available.")
-    print(separator + "\n")
+    # 4. SECURITY TIP
+    print("\nSECURITY TIP")
+    print("Use a long, unique password. Store it in a password manager")
+    print("and enable MFA wherever possible.")
+    print("\n" + separator)
+
+
+def display_detailed_breakdown(analysis: PasswordAnalysis) -> None:
+    """
+    Optional detailed report feature: displays full score breakdown and checklist.
+    Highlights PASS, FAIL, or NOT CHECKED status honestly.
+    """
+    sub_sep = "-" * 50
+    print("\n" + sub_sep)
+    print("         DETAILED SCORE BREAKDOWN")
+    print(sub_sep)
+    print("CRITERIA POINTS:")
+    for rule_name, pts, max_pts, status in analysis.breakdown:
+        print(f"  [{status:<4}] {rule_name:<30} : +{pts:>2}/{max_pts} pts")
+    print(f"  Total Score Calculated       : {analysis.score:>3}/{MAX_SCORE} (capped at {MAX_SCORE})")
+    print("\nEDUCATIONAL NOTE:")
+    print("  The score is an educational estimate of complexity, not a guarantee")
+    print("  of security or a percentage probability of being breached.")
+
+    print("\nDETAILED CHECKLIST:")
+    for rule, passed in analysis.checks_passed.items():
+        status = "PASS" if passed else "FAIL"
+        print(f"  [{status:<4}] {rule}")
+
+    pattern_status = "FAIL" if analysis.warnings else "PASS"
+    print(f"  [{pattern_status:<4}] Common passwords & predictable patterns check")
+    print(sub_sep + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -628,8 +670,14 @@ def main() -> None:
             analysis=analysis,
         )
 
-        # Inquire if the user wishes to test another password
-        next_action = input("Check another password? [Y/n]: ").strip().lower()
+        # Inquire if user wants another password or detailed breakdown
+        while True:
+            next_action = input("\nCheck another password? [Y/n] (or 'd' for detailed breakdown): ").strip().lower()
+            if next_action in ("d", "details", "detailed"):
+                display_detailed_breakdown(analysis)
+                continue
+            break
+
         if next_action in ("n", "no", "q", "quit"):
             print("\nGoodbye! Stay secure and use strong, unique passwords.\n")
             break

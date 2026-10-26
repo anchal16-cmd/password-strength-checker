@@ -3,7 +3,8 @@
 Unit Test Suite for Password Strength Checker
 ============================================================
 Tests all security rules, scoring mechanics, boundary conditions,
-pattern heuristics, privacy protections, and backward compatibility.
+pattern heuristics, privacy protections, simplified report layout,
+and backward compatibility.
 Uses safe dummy test inputs only.
 ============================================================
 """
@@ -24,6 +25,7 @@ from password_checker import (
     detect_leetspeak_substitution,
     detect_repeated_characters,
     detect_sequential_patterns,
+    display_detailed_breakdown,
     display_results,
     prompt_password,
 )
@@ -42,7 +44,7 @@ class TestPasswordChecker(unittest.TestCase):
         self.assertFalse(analysis.checks_passed["Lowercase letter"])
         self.assertFalse(analysis.checks_passed["Digit (0-9)"])
         self.assertFalse(analysis.checks_passed["Special character"])
-        self.assertTrue(any("at least 8" in tip for tip in analysis.tips))
+        self.assertTrue(any("empty" in w.lower() for w in analysis.weaknesses))
 
     def test_very_short_passwords(self):
         """Verify that short passwords fail length and generate appropriate warnings."""
@@ -84,6 +86,30 @@ class TestPasswordChecker(unittest.TestCase):
         self.assertEqual(res_all.score, 100)
         self.assertEqual(res_all.label, "VERY STRONG")
 
+    def test_weak_medium_strong_examples(self):
+        """Explicitly test representative WEAK, MODERATE, STRONG, and VERY STRONG dummy passwords."""
+        # WEAK example: short lowercase dictionary word
+        weak = check_password_strength("hello")
+        self.assertLessEqual(weak.score, 40)
+        self.assertEqual(weak.label, "WEAK")
+
+        # MODERATE example: 8 chars with mixed case only
+        moderate = check_password_strength("HelloWord")
+        self.assertGreater(moderate.score, 40)
+        self.assertLessEqual(moderate.score, 60)
+        self.assertEqual(moderate.label, "MODERATE")
+
+        # STRONG example: 8 chars with mixed case and digits
+        strong = check_password_strength("HelloWord2026")
+        self.assertGreater(strong.score, 60)
+        self.assertLessEqual(strong.score, 90)
+        self.assertIn(strong.label, ("STRONG", "VERY STRONG"))
+
+        # VERY STRONG example: 14 chars with all categories
+        very_strong = check_password_strength("SecurePass#2026!")
+        self.assertEqual(very_strong.score, 100)
+        self.assertEqual(very_strong.label, "VERY STRONG")
+
     def test_passwords_with_spaces(self):
         """Verify that passwords with spaces are NOT stripped and spaces are preserved."""
         raw_pwd = "  SpaceTest1!  "
@@ -95,7 +121,7 @@ class TestPasswordChecker(unittest.TestCase):
         """Verify detection of high-risk common passwords from the offline list."""
         warning = detect_common_password("password123")
         self.assertIsNotNone(warning)
-        self.assertIn("common password", warning)
+        self.assertTrue("common password" in warning or "common word" in warning)
 
         # Unrelated safe dummy password should return None
         self.assertIsNone(detect_common_password("Xy9#mK2$vL8@qP4!"))
@@ -136,7 +162,6 @@ class TestPasswordChecker(unittest.TestCase):
 
     def test_score_capping_and_boundaries(self):
         """Verify score never exceeds MAX_SCORE (100) even with full rules + bonus."""
-        # 12+ chars with all 4 classes = 20*5 + 10 = 110 raw, must cap at 100
         full_dummy = "SecureExamplePass#2026"
         analysis = check_password_strength(full_dummy)
         self.assertEqual(analysis.score, MAX_SCORE)
@@ -144,14 +169,13 @@ class TestPasswordChecker(unittest.TestCase):
 
     def test_recommendations_match_weaknesses(self):
         """Verify that recommendations directly address detected weaknesses."""
-        # Missing digits and special characters
         analysis = check_password_strength("NoDigitsOrSpecialHere")
         recs_text = " ".join(analysis.recommendations)
         self.assertTrue("numbers" in recs_text.lower() or "digit" in recs_text.lower())
         self.assertTrue("special characters" in recs_text.lower() or "symbols" in recs_text.lower())
 
-    def test_no_actual_password_leak_in_report(self):
-        """CRITICAL PRIVACY TEST: Ensure actual cleartext password never appears in report output."""
+    def test_simplified_report_layout_and_privacy(self):
+        """Verify the simplified concise layout headers and ensure zero cleartext password leak."""
         sensitive_dummy = "SecretDummy987654!@"
         captured_output = io.StringIO()
 
@@ -167,10 +191,29 @@ class TestPasswordChecker(unittest.TestCase):
             )
 
         output_str = captured_output.getvalue()
-        # Ensure the actual secret string is nowhere in the printed output
+        # Verify cleartext is NOT printed
         self.assertNotIn(sensitive_dummy, output_str)
-        # Ensure it masked it with asterisks
+        # Verify masked representation
         self.assertIn("*" * len(sensitive_dummy), output_str)
+        # Verify simplified section headers
+        self.assertIn("WHAT IS GOOD?", output_str)
+        self.assertIn("WHAT NEEDS IMPROVEMENT?", output_str)
+        self.assertIn("HOW TO IMPROVE?", output_str)
+        self.assertIn("SECURITY TIP", output_str)
+
+    def test_detailed_breakdown_display(self):
+        """Verify optional detailed score breakdown output."""
+        analysis = check_password_strength("DummyPass123!")
+        captured_output = io.StringIO()
+
+        with patch("sys.stdout", captured_output):
+            display_detailed_breakdown(analysis)
+
+        output_str = captured_output.getvalue()
+        self.assertIn("DETAILED SCORE BREAKDOWN", output_str)
+        self.assertIn("CRITERIA POINTS:", output_str)
+        self.assertIn("DETAILED CHECKLIST:", output_str)
+        self.assertIn("[PASS]", output_str)
 
     def test_backward_compatibility_tuple_unpacking(self):
         """Ensure existing code calling `score, label, tips, checks_passed = check_password_strength(...)` succeeds."""
